@@ -4,6 +4,7 @@ import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -12,14 +13,21 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity {
 
     private TextView txvMessage;
-    private static final int MAX_LENGHT = 900;
+    private Button btnCancel;
+    private Button btnSort;
+    private ProgressBar pgbProgreso;
+    private static final int MAX_LENGHT = 2000;
     private int[] numbers = new int[MAX_LENGHT];
+    private int progreso = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        txvMessage = (TextView)findViewById(R.id.txvMessage);
+        txvMessage = findViewById(R.id.txvMessage);
+        btnCancel = findViewById(R.id.btnCancel);
+        btnSort = findViewById(R.id.btnSort);
+        pgbProgreso = findViewById(R.id.pgbProgreso);
         generateNumbers();
     }
 
@@ -76,6 +84,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void bubbleSort() {
+        int aux;
+        for(int i = 0; i < numbers.length - 1; i++) {
+            for (int j = i + 1; j < numbers.length - 1; j++) {
+                if (numbers[i] > numbers[j])
+                {
+                    aux = numbers[i];
+                    numbers[i] = numbers[j];
+                    numbers[j] = aux;
+                    progreso++;
+                }
+            }
+        }
+    }
+
     private class SimpleAsyncTask extends AsyncTask<Void, Integer, Void> {
 
         @Override
@@ -85,23 +108,38 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected Void doInBackground(Void... voids) {
-            //publishProgress();
+            bubbleSort();
+            // Si no se cancela la operación se actualizará la barra de progreso
+            if(!isCancelled())
+                publishProgress(Math.round((progreso * 100) / numbers.length));
+
             return null;
         }
 
         @Override
         protected void onProgressUpdate(Integer... values) {
             super.onProgressUpdate(values);
+            txvMessage.setText(values[0] + "%");
+        }
+
+        /**
+         * Método que se ejecuta cuando se cancela la tarea
+         * @param aVoid
+         */
+        @Override
+        protected void onCancelled(Void aVoid) {
+            super.onCancelled(aVoid);
+            btnCancel.setVisibility(View.INVISIBLE);
+            btnSort.setEnabled(true);
+            txvMessage.setText("Operación cancelada");
         }
 
         @Override
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
-        }
-
-        @Override
-        protected void onCancelled(Void aVoid) {
-            super.onCancelled(aVoid);
+            btnCancel.setVisibility(View.INVISIBLE);
+            btnSort.setEnabled(true);
+            txvMessage.setText("Operación terminada");
         }
     }
 }
