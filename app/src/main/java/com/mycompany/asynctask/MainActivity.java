@@ -7,18 +7,19 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int MAX_LENGTH = 500;
+    private int[] numbers = new int[MAX_LENGTH];
+
     private TextView txvMessage;
     private Button btnCancel;
     private Button btnSort;
-    private ProgressBar pgbProgreso;
-    private static final int MAX_LENGHT = 2000;
-    private int[] numbers = new int[MAX_LENGHT];
-    private int progreso = 0;
+    private SimpleAsyncTask simpleAsyncTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,14 +28,16 @@ public class MainActivity extends AppCompatActivity {
         txvMessage = findViewById(R.id.txvMessage);
         btnCancel = findViewById(R.id.btnCancel);
         btnSort = findViewById(R.id.btnSort);
-        pgbProgreso = findViewById(R.id.pgbProgreso);
-        generateNumbers();
     }
 
     private void generateNumbers() {
+        /*
         Random random = new Random();
-        for(int i = 0; i < MAX_LENGHT; i++)
+        for(int i = 0; i < MAX_LENGTH; i++)
             numbers[i] = random.nextInt();
+        */
+        for (int i = 0; i < numbers.length; i++)
+            numbers[i] = (int) Math.floor(Math.random() * MAX_LENGTH);
     }
 
     /**
@@ -47,21 +50,33 @@ public class MainActivity extends AppCompatActivity {
         txvMessage.setText("Operación terminada"); */
         /** OPCIÓN 2: Crear un hilo para la ejecución del método
          * bubbleSort y posterior actualización del mensaje
-         */
-        execWithThread();
+        execWithThread(); */
+        /** Opción 3: Con AsyncTask */
+        simpleAsyncTask = new SimpleAsyncTask();
+        simpleAsyncTask.execute();
+    }
+
+    public void onCancelSort(View view) {
+        /** Opción 3: Con AsyncTask */
+        simpleAsyncTask.cancel(true);
     }
 
     private void execWithThread() {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                bubbleSort(numbers);
+                bubbleSort();
+                /** Opcion 2.1: Esta es la única forma de tener acceso a la vista
+                Esta opción no es limpia */
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         txvMessage.setText("Operación terminada");
+                        Toast.makeText(MainActivity.this, "Fin", Toast.LENGTH_SHORT).show();
                     }
                 });
+                /** Opcion 2.2:
+                txvMessage.setText("Operación terminada"); */
             }
         }).start();
     }
@@ -93,7 +108,6 @@ public class MainActivity extends AppCompatActivity {
                     aux = numbers[i];
                     numbers[i] = numbers[j];
                     numbers[j] = aux;
-                    progreso++;
                 }
             }
         }
@@ -104,21 +118,43 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            btnCancel.setVisibility(View.VISIBLE);
+            btnSort.setEnabled(false);
+            generateNumbers();
         }
 
+        /**
+         * Es el único método que se ejecuta en el hilo principal.
+         * La comunicación con la interfaz gráfica se ejecuta con publishProgress.
+         * En el método principal se va a ejecutar onProgressUpdate.
+         * En la interfaz gráfica se ejecutan todos menos doInBackground
+         * (onPreExecute, onProgressUpdate, publishProgress, onPostExecute, onCancelled).
+         * @param
+         * @return
+         */
         @Override
         protected Void doInBackground(Void... voids) {
-            bubbleSort();
-            // Si no se cancela la operación se actualizará la barra de progreso
-            if(!isCancelled())
-                publishProgress(Math.round((progreso * 100) / numbers.length));
-
+            //Si no se cancela la operación se actualizará la barra de progreso
+            int maxMovimientos = (numbers.length * (numbers.length - 1)) / 2;
+            int movimientos = 1;
+            for (int i = 0; i < numbers.length; i++)
+                for (int j = 1; j < (numbers.length - i); j++) {
+                    publishProgress((int) ((100 * movimientos++)/ (float) maxMovimientos));
+                    if (numbers[j - 1] > numbers[j]) {
+                        int aux = numbers[j - 1];
+                        numbers[j - 1] = numbers[j];
+                        numbers[j] = aux;
+                    }
+                    if (isCancelled())
+                        return null;
+                }
             return null;
         }
 
         @Override
         protected void onProgressUpdate(Integer... values) {
             super.onProgressUpdate(values);
+            //Este caso es de un único parámetro
             txvMessage.setText(values[0] + "%");
         }
 
